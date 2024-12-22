@@ -8,8 +8,8 @@ import VideoBox from "../components/VideoBox";
 import RouteGuard from "@/components/auth/RouteGuard";
 
 export default function Home() {
-  const [isVideoShared, setIsVideoShared] = useState(false);
-  const [videopopup, setVideopopup] = useState(false);
+  const [isVideoShared, setIsVideoShared] = useState(true);
+  // const [videopopup, setVideopopup] = useState(true);
   const handleShareVideoClick = () => {
     setIsVideoShared(!isVideoShared); // Toggle the state
   };
@@ -24,32 +24,15 @@ export default function Home() {
 
         {isVideoShared && (
           <div className="w-[50%]">
-            <VideoBox videopopup={videopopup} />
+            <VideoBox />
           </div>
         )}
         <div
-          className={`pt-4 transition-all duration-300 ${
-            isVideoShared ? "w-[30%] pl-2" : "w-[60%] ml-2 mx-auto text-center"
+          className={`pt-4 transition-all duration-300 w-[30%] pl-2" ml-2 mx-auto text-center"
           }`}
         >
-          <ChatBox
-            handleShareVideoClick={handleShareVideoClick}
-            setVideopopup={setVideopopup}
-            videopopup={videopopup}
-          />
+          <ChatBox />
         </div>
-
-        {/* Top Navigation */}
-        {/* <div className="absolute top-4 right-4 flex space-x-4">
-        <button
-          onClick={handleShareVideoClick}
-          className="bg-black text-white p-2 rounded-full"
-        >
-          {isVideoShared ? "Stop Sharing Video" : "Share Video"}
-        </button>{" "}
-        <button className="bg-black p-2 rounded-full">🔔</button>
-        <button className="bg-black p-2 rounded-full">👥</button>
-      </div> */}
       </div>
     </RouteGuard>
   );

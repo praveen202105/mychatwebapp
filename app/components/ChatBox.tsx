@@ -25,16 +25,8 @@ import { Button } from "@/components/ui/button";
 interface CustomSocket extends Socket {
   nickname?: string;
 }
-interface ChatBoxProps {
-  handleShareVideoClick: () => void; // A function with no arguments and no return value
-  setVideopopup: React.Dispatch<React.SetStateAction<boolean>>;
-  videopopup: boolean;
-}
-const ChatBox: React.FC<ChatBoxProps> = ({
-  handleShareVideoClick,
-  setVideopopup,
-  videopopup,
-}) => {
+
+const ChatBox: React.FC = () => {
   const user = useUserStore((state) => state.user);
 
   console.log(user?.username);
@@ -169,67 +161,8 @@ const ChatBox: React.FC<ChatBoxProps> = ({
             setOnlineUsers(users);
             setOnlineUsersCount(Object.keys(users).length);
           });
-
-          socketRef.current.on("webrtcOffer", async ({ offer, from }) => {
-            const peer = createPeer(from, false);
-            await peer.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await peer.createAnswer();
-            await peer.setLocalDescription(answer);
-            if (socketRef.current) {
-              socketRef.current.emit("webrtcAnswer", {
-                answer,
-                partnerId: from,
-              });
-            }
-          });
-
-          socketRef.current.on("webrtcAnswer", async ({ answer }) => {
-            if (peerRef.current) {
-              await peerRef.current.setRemoteDescription(
-                new RTCSessionDescription(answer)
-              );
-            }
-          });
-
-          socketRef.current.on("iceCandidate", ({ candidate }) => {
-            if (peerRef.current) {
-              peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-            }
-          });
         }
       }
-
-      const createPeer = (partnerId: any, isInitiator: boolean) => {
-        const peer = new RTCPeerConnection(config);
-        peerRef.current = peer;
-
-        peer.onicecandidate = (event) => {
-          if (event.candidate) {
-            if (socketRef.current) {
-              socketRef.current.emit("iceCandidate", {
-                candidate: event.candidate,
-                partnerId,
-              });
-            }
-          }
-        };
-
-        peer.ontrack = (event) => {
-          console.log("remote vedio hai", event.streams[0]);
-
-          if (remoteVideoRef.current) {
-            console.log("it is setting");
-            remoteVideoRef.current.srcObject = event.streams[0];
-          }
-          handleShareVideoClick();
-        };
-
-        if (isInitiator && stream) {
-          stream.getTracks().forEach((track) => peer.addTrack(track, stream));
-        }
-
-        return peer;
-      };
 
       return () => {
         if (socketRef.current) {
@@ -239,9 +172,9 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           socketRef.current.off("message");
           socketRef.current.off("partnerId");
           socketRef.current.off("onlineUsers");
-          socketRef.current.off("webrtcOffer");
-          socketRef.current.off("webrtcAnswer");
-          socketRef.current.off("iceCandidate");
+          // socketRef.current.off("webrtcOffer");
+          // socketRef.current.off("webrtcAnswer");
+          // socketRef.current.off("iceCandidate");
         }
       };
     }
@@ -260,9 +193,9 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   return (
     <>
-      <div className="h-[90%] rounded-md border pl-4 pr-4 pt-0 overflow-y-auto">
+      <div className="h-[90%]  pl-4 pr-4 pt-0 overflow-y-auto">
         <div className="mr-0">
-          {videopopup ? (
+          {/* {videopopup ? (
             <>
               <Button
                 onClick={() => {
@@ -275,16 +208,16 @@ const ChatBox: React.FC<ChatBoxProps> = ({
               </Button>
             </>
           ) : (
-            <Button
-              onClick={() => {
-                handleShareVideoClick();
-                setVideopopup(true);
-              }}
-              className="bg-black text-white p-2 rounded-full"
-            >
-              WANNA TO DO VEDIO CALL
-            </Button>
-          )}
+            // <Button
+            //   onClick={() => {
+            //     handleShareVideoClick();
+            //     setVideopopup(true);
+            //   }}
+            //   className="bg-black text-white p-2 rounded-full"
+            // >
+            //   WANNA TO DO VEDIO CALL
+            // </Button>
+          )} */}
         </div>
         <div
           ref={scrollRef}

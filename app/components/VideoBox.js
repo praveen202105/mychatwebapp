@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useUserStore } from "../store/userStore";
+import { Stream } from "stream";
 
-const VideoBox = ({ videopopup }) => {
+const VideoBox = () => {
   const mySocket = useUserStore((state) => state.mySocket);
   const partnerId = useUserStore((state) => state.partnerSocket);
-  // const [stream, setStream] = useState(null);
   const peerRef = useRef(null);
   const stream = useUserStore((state) => state.stream);
   const setStream = useUserStore((state) => state.setStream);
@@ -21,48 +21,35 @@ const VideoBox = ({ videopopup }) => {
     ],
   };
 
-  // console.log("remote ", remoteVideoRef.current);
-
   useEffect(() => {
     if (mySocket) {
       mySocket.on("webrtcOffer", async ({ offer, from }) => {
         const peer = createPeer(from, false);
 
-        // Check if peer connection is in 'stable' state
-        if (peer.signalingState === "stable") {
-          // Set remote description only if the state is 'stable'
-          try {
+        // Set remote description safely
+        try {
+          if (peer.signalingState === "stable") {
             await peer.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await peer.createAnswer();
             await peer.setLocalDescription(answer);
             mySocket.emit("webrtcAnswer", { answer, partnerId: from });
-          } catch (error) {
-            console.error("Error setting remote description:", error);
           }
-        } else {
-          console.error(
-            "Peer connection is not in stable state, signaling state:",
-            peer.signalingState
-          );
+        } catch (error) {
+          console.error("Error setting remote description:", error);
         }
       });
 
       mySocket.on("webrtcAnswer", async ({ answer }) => {
-        if (peerRef.current) {
-          // Ensure the connection is in the correct state to set remote description
-          if (peerRef.current.signalingState === "have-local-offer") {
-            try {
-              await peerRef.current.setRemoteDescription(
-                new RTCSessionDescription(answer)
-              );
-            } catch (error) {
-              console.error("Error setting remote description:", error);
-            }
-          } else {
-            console.error(
-              "Cannot set remote description in current state:",
-              peerRef.current.signalingState
+        if (
+          peerRef.current &&
+          peerRef.current.signalingState === "have-local-offer"
+        ) {
+          try {
+            await peerRef.current.setRemoteDescription(
+              new RTCSessionDescription(answer)
             );
+          } catch (error) {
+            console.error("Error setting remote description:", error);
           }
         }
       });
@@ -70,8 +57,6 @@ const VideoBox = ({ videopopup }) => {
       mySocket.on("iceCandidate", ({ candidate }) => {
         if (peerRef.current) {
           peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-        } else {
-          console.error("peerRef.current is null, cannot add ICE candidate.");
         }
       });
     }
@@ -100,8 +85,6 @@ const VideoBox = ({ videopopup }) => {
 
     peer.ontrack = (event) => {
       if (remoteVideoRef.current) {
-        console.log("rrfrfr ", event.streams[0]);
-
         remoteVideoRef.current.srcObject = event.streams[0];
       }
     };
@@ -113,22 +96,32 @@ const VideoBox = ({ videopopup }) => {
     return peer;
   };
 
-  const sharevedio = async () => {
+  const shareVideo = async () => {
     if (partnerId) {
       const localStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
       });
-      // localVideoRef.current.srcObject = localStream;
-      setStream(localStream);
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+        setStream(localStream);
+      } else {
+        console.error("localVideoRef is not set");
+      }
 
       const peer = createPeer(partnerId, true);
       localStream
         .getTracks()
         .forEach((track) => peer.addTrack(track, localStream));
-      const offer = await peer.createOffer();
-      await peer.setLocalDescription(offer);
-      mySocket.emit("webrtcOffer", { offer, partnerId });
+
+      try {
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+        mySocket.emit("webrtcOffer", { offer, partnerId });
+      } catch (error) {
+        console.error("Error creating offer:", error);
+      }
     }
   };
 
@@ -136,15 +129,8 @@ const VideoBox = ({ videopopup }) => {
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
       setStream(null);
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = null;
-      }
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = null;
-      }
-      // Reset the refs using state functions
-      setLocalVideoRef(null);
-      setRemoteVideoRef(null);
+      localVideoRef.current.srcObject = null;
+      remoteVideoRef.current.srcObject = null;
     }
     if (peerRef.current) {
       peerRef.current.close();
@@ -152,26 +138,35 @@ const VideoBox = ({ videopopup }) => {
     }
   };
 
+  const initializeStream = async () => {
+    try {
+      const localStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+      }
+      setStream(localStream);
+    } catch (error) {
+      console.error("Error accessing media devices:", error);
+    }
+  };
+
   useEffect(() => {
-    const initializeStream = async () => {
-      if (videopopup) {
-        try {
-          const localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
-          });
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = localStream;
-          }
-          setStream(localStream);
-        } catch (error) {
-          console.error("Error accessing media devices:", error);
-        }
+    initializeStream();
+  }, []);
+
+  useEffect(() => {
+    const initializeAndShareVideo = async () => {
+      if (partnerId) {
+        await initializeStream();
+        await shareVideo();
       }
     };
 
-    initializeStream();
-  }, [videopopup]);
+    initializeAndShareVideo();
+  }, [partnerId]);
 
   return (
     <div className="flex flex-col items-center space-y-4">
@@ -179,7 +174,7 @@ const VideoBox = ({ videopopup }) => {
         <video
           ref={remoteVideoRef}
           autoPlay
-          className="w-full h-auto rounded border"
+          className="w-full h-auto border rounded "
         ></video>
         <p className="text-center mt-2">Other User</p>
       </div>
@@ -189,25 +184,9 @@ const VideoBox = ({ videopopup }) => {
           ref={localVideoRef}
           autoPlay
           muted
-          className="w-full h-40 rounded border"
+          className="w-full h-40 "
         ></video>
         <p className="text-center mt-2">You</p>
-      </div>
-
-      <div className="absolute top-8 right-4 flex flex-col space-y-2">
-        <button
-          onClick={sharevedio}
-          className="bg-green-500 text-white p-2 rounded-full"
-        >
-          Start Call
-        </button>
-
-        <button
-          onClick={stopVideo}
-          className="bg-red-500 text-white p-2 rounded-full"
-        >
-          Stop Call
-        </button>
       </div>
     </div>
   );
